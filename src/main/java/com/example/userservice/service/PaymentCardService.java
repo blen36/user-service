@@ -12,7 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.NoSuchElementException;
+import com.example.userservice.exception.CardLimitExceededException;
+import com.example.userservice.exception.ResourceNotFoundException;
 
 @Service
 @Transactional(readOnly = true)
@@ -45,7 +46,7 @@ public class PaymentCardService {
                 paymentCardRepository.countByUser_Id(userId);
 
         if (cardCount >= MAX_CARDS_PER_USER) {
-            throw new IllegalStateException(
+            throw new CardLimitExceededException(
                     "User cannot have more than 5 cards"
             );
         }
@@ -117,7 +118,7 @@ public class PaymentCardService {
     private User findUser(Long id) {
         return userRepository
                 .findById(id)
-                .orElseThrow(() -> new NoSuchElementException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "User with id " + id + " was not found"
                 ));
     }
@@ -125,7 +126,7 @@ public class PaymentCardService {
     private PaymentCard findCard(Long id) {
         return paymentCardRepository
                 .findById(id)
-                .orElseThrow(() -> new NoSuchElementException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Payment card with id " + id + " was not found"
                 ));
     }
