@@ -1,6 +1,7 @@
 package com.example.userservice.repository;
 
 import com.example.userservice.entity.PaymentCard;
+import com.example.userservice.support.PostgresIntegrationTest;
 import com.example.userservice.entity.User;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -15,14 +16,12 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
 @Transactional
 @TestPropertySource(properties = {
         "spring.jpa.show-sql=true",
         "spring.jpa.properties.hibernate.format_sql=true"
 })
-class UserRepositoryIntegrationTest {
-
+class UserRepositoryIntegrationTest extends PostgresIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
