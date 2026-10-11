@@ -10,7 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.NoSuchElementException;
+import com.example.userservice.exception.DuplicateEmailException;
+import com.example.userservice.exception.ResourceNotFoundException;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,7 +31,7 @@ public class UserService {
     @Transactional
     public UserResponseDto create(UserRequestDto request) {
         if (userRepository.existsByEmailIgnoreCase(request.email())) {
-            throw new IllegalArgumentException(
+            throw new DuplicateEmailException(
                     "User with this email already exists"
             );
         }
@@ -65,7 +66,7 @@ public class UserService {
 
         if (emailChanged
                 && userRepository.existsByEmailIgnoreCase(request.email())) {
-            throw new IllegalArgumentException(
+            throw new DuplicateEmailException(
                     "User with this email already exists"
             );
         }
@@ -95,7 +96,7 @@ public class UserService {
     private User findUser(Long id) {
         return userRepository
                 .findById(id)
-                .orElseThrow(() -> new NoSuchElementException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "User with id " + id + " was not found"
                 ));
     }
