@@ -9,7 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import com.example.userservice.exception.DuplicateEmailException;
 import com.example.userservice.exception.ResourceNotFoundException;
 
@@ -42,6 +43,7 @@ public class UserService {
         return userMapper.toDto(savedUser);
     }
 
+    @Cacheable(cacheNames = "users", key = "#id")
     public UserResponseDto getById(Long id) {
         User user = findUser(id);
 
@@ -54,6 +56,7 @@ public class UserService {
                 .map(userMapper::toDto);
     }
 
+    @CacheEvict(cacheNames = "users", key = "#id")
     @Transactional
     public UserResponseDto update(
             Long id,
@@ -76,6 +79,7 @@ public class UserService {
         return userMapper.toDto(user);
     }
 
+    @CacheEvict(cacheNames = "users", key = "#id")
     @Transactional
     public UserResponseDto changeActive(
             Long id,
@@ -87,6 +91,7 @@ public class UserService {
         return userMapper.toDto(user);
     }
 
+    @CacheEvict(cacheNames = "users", key = "#id")
     @Transactional
     public void delete(Long id) {
         User user = findUser(id);

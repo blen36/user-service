@@ -1,7 +1,9 @@
 package com.example.userservice.dto;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 public record UserResponseDto(
         Long id,
@@ -11,6 +13,7 @@ public record UserResponseDto(
         String email,
         boolean active,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt,
+        List<PaymentCardResponseDto> paymentCards
+) implements Serializable {
 }
