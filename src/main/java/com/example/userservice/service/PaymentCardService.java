@@ -8,6 +8,7 @@ import com.example.userservice.mapper.PaymentCardMapper;
 import com.example.userservice.repository.PaymentCardRepository;
 import com.example.userservice.repository.UserRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class PaymentCardService {
         this.paymentCardMapper = paymentCardMapper;
     }
 
+    @CacheEvict(cacheNames = "users", key = "#userId")
     @Transactional
     public PaymentCardResponseDto create(
             Long userId,
@@ -86,6 +88,7 @@ public class PaymentCardService {
                 .map(paymentCardMapper::toDto);
     }
 
+    @CacheEvict(cacheNames = "users", allEntries = true)
     @Transactional
     public PaymentCardResponseDto update(
             Long id,
@@ -98,6 +101,7 @@ public class PaymentCardService {
         return paymentCardMapper.toDto(card);
     }
 
+    @CacheEvict(cacheNames = "users", allEntries = true)
     @Transactional
     public PaymentCardResponseDto changeActive(
             Long id,
@@ -109,6 +113,7 @@ public class PaymentCardService {
         return paymentCardMapper.toDto(card);
     }
 
+    @CacheEvict(cacheNames = "users", allEntries = true)
     @Transactional
     public void delete(Long id) {
         PaymentCard card = findCard(id);
