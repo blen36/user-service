@@ -115,6 +115,36 @@ class UserServiceTest {
     }
 
     @Test
+    void shouldRejectDuplicateEmailWhenUpdatingUser() {
+        UserRequestDto request = request("occupied@example.com");
+        User user = user("ivan@example.com");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailIgnoreCase(request.email())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.update(1L, request))
+                .isInstanceOf(DuplicateEmailException.class)
+                .hasMessage("User with this email already exists");
+
+        verify(userMapper, never()).updateEntity(request, user);
+    }
+
+    @Test
+    void shouldUpdateUserWhenEmailCaseChanges() {
+        UserRequestDto request = request("IVAN@EXAMPLE.COM");
+        User user = user("ivan@example.com");
+        UserResponseDto response = response("IVAN@EXAMPLE.COM", true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userMapper.toDto(user)).thenReturn(response);
+
+        UserResponseDto result = userService.update(1L, request);
+
+        assertThat(result).isSameAs(response);
+        verify(userRepository, never())
+                .existsByEmailIgnoreCase(request.email());
+        verify(userMapper).updateEntity(request, user);
+    }
+
+    @Test
     void shouldChangeUserActiveStatus() {
         User user = user("ivan@example.com");
         UserResponseDto response = response("ivan@example.com", false);
