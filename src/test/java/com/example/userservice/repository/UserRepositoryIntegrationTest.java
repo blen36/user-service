@@ -1,12 +1,13 @@
 package com.example.userservice.repository;
 
 import com.example.userservice.entity.PaymentCard;
-import com.example.userservice.support.PostgresIntegrationTest;
 import com.example.userservice.entity.User;
+import com.example.userservice.specification.PaymentCardSpecifications;
+import com.example.userservice.specification.UserSpecifications;
+import com.example.userservice.support.PostgresIntegrationTest;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,5 +111,61 @@ class UserRepositoryIntegrationTest extends PostgresIntegrationTest {
 
         assertThat(userRepository.findById(userId)).isEmpty();
         assertThat(paymentCardRepository.findById(cardId)).isEmpty();
+    }
+
+    @Test
+    void shouldFilterUsersAndCardsUsingSpecifications() {
+        User user = new User(
+                "SpecificationOnlyName",
+                "UniqueSpecSurname",
+                LocalDate.of(2000, 5, 15),
+                "specification@example.com"
+        );
+
+        PaymentCard card = new PaymentCard(
+                "5555555555554444",
+                "SPECIFICATION OWNER",
+                LocalDate.of(2030, 12, 31)
+        );
+
+        user.addPaymentCard(card);
+        userRepository.saveAndFlush(user);
+        entityManager.clear();
+
+        assertThat(userRepository.findAll(
+                UserSpecifications.nameContains("  CATIONONLY  ")
+        )).extracting(User::getEmail)
+                .contains("specification@example.com");
+
+        assertThat(userRepository.findAll(
+                UserSpecifications.surnameContains("  SPECSUR  ")
+        )).extracting(User::getEmail)
+                .contains("specification@example.com");
+
+        assertThat(userRepository.findAll(
+                UserSpecifications.nameContains("   ")
+        )).isNotEmpty();
+
+        assertThat(userRepository.findAll(
+                UserSpecifications.surnameContains(null)
+        )).isNotEmpty();
+
+        assertThat(paymentCardRepository.findAll(
+                PaymentCardSpecifications.userNameContains("  CATIONONLY  ")
+        )).extracting(PaymentCard::getHolder)
+                .contains("SPECIFICATION OWNER");
+
+        assertThat(paymentCardRepository.findAll(
+                PaymentCardSpecifications.userSurnameContains("  SPECSUR  ")
+        )).extracting(PaymentCard::getHolder)
+                .contains("SPECIFICATION OWNER");
+
+        assertThat(paymentCardRepository.findAll(
+                PaymentCardSpecifications.userNameContains(null)
+        )).isNotEmpty();
+
+        assertThat(paymentCardRepository.findAll(
+                PaymentCardSpecifications.userSurnameContains("   ")
+        )).isNotEmpty();
     }
 }

@@ -5,6 +5,7 @@ import com.example.userservice.dto.PaymentCardResponseDto;
 import com.example.userservice.entity.PaymentCard;
 import com.example.userservice.entity.User;
 import com.example.userservice.exception.CardLimitExceededException;
+import com.example.userservice.exception.ResourceNotFoundException;
 import com.example.userservice.mapper.PaymentCardMapper;
 import com.example.userservice.repository.PaymentCardRepository;
 import com.example.userservice.repository.UserRepository;
@@ -76,6 +77,18 @@ class PaymentCardServiceTest {
     }
 
     @Test
+    void shouldRejectPaymentCardWhenUserNotFound() {
+        PaymentCardRequestDto request = request("IVAN IVANOV");
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentCardService.create(999L, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("User with id 999 was not found");
+
+        verify(paymentCardRepository, never()).countByUser_Id(999L);
+    }
+
+    @Test
     void shouldGetPaymentCardById() {
         PaymentCard card = card("IVAN IVANOV");
         PaymentCardResponseDto response = response("IVAN IVANOV", true);
@@ -83,6 +96,15 @@ class PaymentCardServiceTest {
         when(paymentCardMapper.toDto(card)).thenReturn(response);
 
         assertThat(paymentCardService.getById(10L)).isSameAs(response);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenPaymentCardNotFound() {
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentCardService.getById(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Payment card with id 999 was not found");
     }
 
     @Test
