@@ -4,6 +4,7 @@ import com.example.userservice.dto.UserRequestDto;
 import com.example.userservice.dto.UserResponseDto;
 import com.example.userservice.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,7 @@ public class UserController {
         this.userService = userService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<UserResponseDto> create(
             @Valid @RequestBody UserRequestDto request
@@ -40,6 +42,7 @@ public class UserController {
                 .body(response);
     }
 
+    @PreAuthorize("@resourceAccess.canAccessUser(#p0, authentication)")
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDto> getById(
             @PathVariable Long id
@@ -47,6 +50,7 @@ public class UserController {
         return ResponseEntity.ok(userService.getById(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<Page<UserResponseDto>> getAll(
             Pageable pageable
@@ -54,6 +58,7 @@ public class UserController {
         return ResponseEntity.ok(userService.getAll(pageable));
     }
 
+    @PreAuthorize("@resourceAccess.canAccessUser(#p0, authentication)")
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDto> update(
             @PathVariable Long id,
@@ -64,6 +69,7 @@ public class UserController {
         );
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/active")
     public ResponseEntity<UserResponseDto> changeActive(
             @PathVariable Long id,
@@ -74,6 +80,7 @@ public class UserController {
         );
     }
 
+    @PreAuthorize("@resourceAccess.canAccessUser(#p0, authentication)")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable Long id

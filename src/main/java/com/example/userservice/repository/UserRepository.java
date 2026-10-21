@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface UserRepository
         extends JpaRepository<User, Long>,
         JpaSpecificationExecutor<User> {
+    boolean existsByIdAndActiveTrue(Long id);
+
 
     boolean existsByEmailIgnoreCase(String email);
 

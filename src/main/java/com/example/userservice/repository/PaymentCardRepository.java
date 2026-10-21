@@ -15,6 +15,8 @@ import java.util.List;
 public interface PaymentCardRepository
         extends JpaRepository<PaymentCard, Long>,
         JpaSpecificationExecutor<PaymentCard> {
+    boolean existsByIdAndUser_Id(Long id, Long userId);
+
 
     Page<PaymentCard> findAllByUser_Id(
             Long userId,

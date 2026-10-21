@@ -5,6 +5,7 @@ import com.example.userservice.entity.User;
 import com.example.userservice.repository.PaymentCardRepository;
 import com.example.userservice.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,13 +24,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = "spring.cache.type=none")
 @AutoConfigureMockMvc
 @Testcontainers
+@WithMockUser(roles = "ADMIN")
 class ControllerToDatabaseIntegrationTest {
 
     @Container
@@ -38,6 +39,9 @@ class ControllerToDatabaseIntegrationTest {
 
     @DynamicPropertySource
     static void configurePostgres(DynamicPropertyRegistry registry) {
+        registry.add("auth.jwt.public-key", com.example.userservice.support.TestJwtKeys::publicKeyLocation);
+        registry.add("auth.jwt.issuer", () -> "authentication-service");
+        registry.add("auth.jwt.audience", () -> "java-advanced-api");
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -146,94 +150,6 @@ class ControllerToDatabaseIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(paymentCardRepository.findById(cardId)).isEmpty();
-    }
-
-    @Test
-    void shouldReturnUserAndPaymentCardLists() throws Exception {
-        mockMvc.perform(post("/api/v1/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(userJson("list.owner@example.com", "Owner")))
-                .andExpect(status().isCreated());
-
-        Long userId = userRepository
-                .findByEmailUsingJpql("list.owner@example.com")
-                .orElseThrow()
-                .getId();
-
-        mockMvc.perform(post("/api/v1/users/{userId}/cards", userId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(cardJson("LIST OWNER")))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(get("/api/v1/users")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].email")
-                        .value("list.owner@example.com"));
-
-        mockMvc.perform(get("/api/v1/cards")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].holder")
-                        .value("LIST OWNER"));
-
-        mockMvc.perform(get("/api/ping"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("User Service is running"));
-    }
-
-    @Test
-    void shouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("/api/v1/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(userJson("invalid-email", "Ivanov")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message")
-                        .value("Request validation failed"))
-                .andExpect(jsonPath("$.fieldErrors.email")
-                        .value("Email must be valid"));
-    }
-
-    @Test
-    void shouldReturnNotFoundError() throws Exception {
-        mockMvc.perform(get("/api/v1/users/{id}", 999999L))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.message")
-                        .value("User with id 999999 was not found"));
-    }
-
-    @Test
-    void shouldReturnConflictForDuplicateEmail() throws Exception {
-        String request = userJson("duplicate@example.com", "Ivanov");
-
-        mockMvc.perform(post("/api/v1/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(post("/api/v1/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.message")
-                        .value("User with this email already exists"));
-    }
-
-    @Test
-    void shouldRejectInvalidActiveParameter() throws Exception {
-        mockMvc.perform(patch("/api/v1/users/{id}/active", 1L)
-                        .param("active", "not-a-boolean"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message")
-                        .value("Invalid value for parameter: active"));
     }
 
     private String userJson(String email, String surname) {

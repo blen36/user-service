@@ -4,6 +4,7 @@ import com.example.userservice.dto.PaymentCardRequestDto;
 import com.example.userservice.dto.PaymentCardResponseDto;
 import com.example.userservice.service.PaymentCardService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,7 @@ public class PaymentCardController {
         this.paymentCardService = paymentCardService;
     }
 
+    @PreAuthorize("@resourceAccess.canAccessUser(#p0, authentication)")
     @PostMapping("/users/{userId}/cards")
     public ResponseEntity<PaymentCardResponseDto> create(
             @PathVariable Long userId,
@@ -44,6 +46,7 @@ public class PaymentCardController {
                 .body(response);
     }
 
+    @PreAuthorize("@resourceAccess.canAccessCard(#p0, authentication)")
     @GetMapping("/cards/{id}")
     public ResponseEntity<PaymentCardResponseDto> getById(
             @PathVariable Long id
@@ -53,6 +56,7 @@ public class PaymentCardController {
         );
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/cards")
     public ResponseEntity<Page<PaymentCardResponseDto>> getAll(
             Pageable pageable
@@ -62,6 +66,7 @@ public class PaymentCardController {
         );
     }
 
+    @PreAuthorize("@resourceAccess.canAccessUser(#p0, authentication)")
     @GetMapping("/users/{userId}/cards")
     public ResponseEntity<Page<PaymentCardResponseDto>> getAllByUserId(
             @PathVariable Long userId,
@@ -72,6 +77,7 @@ public class PaymentCardController {
         );
     }
 
+    @PreAuthorize("@resourceAccess.canAccessCard(#p0, authentication)")
     @PutMapping("/cards/{id}")
     public ResponseEntity<PaymentCardResponseDto> update(
             @PathVariable Long id,
@@ -82,6 +88,7 @@ public class PaymentCardController {
         );
     }
 
+    @PreAuthorize("@resourceAccess.canAccessCard(#p0, authentication)")
     @PatchMapping("/cards/{id}/active")
     public ResponseEntity<PaymentCardResponseDto> changeActive(
             @PathVariable Long id,
@@ -92,6 +99,7 @@ public class PaymentCardController {
         );
     }
 
+    @PreAuthorize("@resourceAccess.canAccessCard(#p0, authentication)")
     @DeleteMapping("/cards/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable Long id
