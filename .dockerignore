@@ -1,0 +1,9 @@
+.git
+.idea
+*.iml
+target
+.env
+.env.*
+src/test
+*.zip
+*.log
