@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateEmailException.class,
-            CardLimitExceededException.class
+            CardLimitExceededException.class,
+            org.springframework.dao.DataIntegrityViolationException.class
     })
     public ResponseEntity<ErrorResponseDto> handleConflict(
             RuntimeException exception,
