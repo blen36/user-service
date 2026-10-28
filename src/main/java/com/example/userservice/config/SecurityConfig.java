@@ -1,14 +1,15 @@
 package com.example.userservice.config;
 
-import com.example.userservice.dto.ErrorResponseDto;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.example.userservice.security.RegistrationKeyFilter;
+import com.example.userservice.security.SecurityErrorWriter;
+import com.example.userservice.security.UserAccess;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,54 +17,178 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import tools.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.time.Instant;
-import java.util.Map;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final String USER_ID_VARIABLE = "userId";
+    private static final String USER_PATH = "/api/v1/users/{userId}";
+    private static final String ACCESS_DENIED_MESSAGE = "Access denied";
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder decoder,
-                                                   ObjectMapper objectMapper) throws Exception {
-        JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
+    @Order(1)
+    public SecurityFilterChain internalSecurity(
+            HttpSecurity http,
+            SecurityErrorWriter errors,
+            @Value("${user.registration-key}") String key
+    ) throws Exception {
+        configureCommon(http, errors);
+
+        return http
+                .securityMatcher("/internal/**")
+                .authorizeHttpRequests(rules -> rules
+                        .anyRequest().hasRole("GATEWAY")
+                )
+                .addFilterBefore(
+                        new RegistrationKeyFilter(key, errors),
+                        UsernamePasswordAuthenticationFilter.class
+                )
+                .build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain apiSecurity(
+            HttpSecurity http,
+            JwtDecoder decoder,
+            SecurityErrorWriter errors,
+            UserAccess access
+    ) throws Exception {
+        configureCommon(http, errors);
+
+        JwtGrantedAuthoritiesConverter roles =
+                new JwtGrantedAuthoritiesConverter();
+
         roles.setAuthoritiesClaimName("role");
         roles.setAuthorityPrefix("ROLE_");
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+
+        JwtAuthenticationConverter converter =
+                new JwtAuthenticationConverter();
+
         converter.setJwtGrantedAuthoritiesConverter(roles);
 
-        return http.csrf(AbstractHttpConfigurer::disable)
+        return http
+                .authorizeHttpRequests(rules -> rules
+                        .requestMatchers(HttpMethod.GET, "/api/ping")
+                        .permitAll()
+
+                        .requestMatchers(HttpMethod.GET, USER_PATH)
+                        .access((authentication, context) ->
+                                new AuthorizationDecision(
+                                        access.canAccessUser(
+                                                authentication.get(),
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
+                                        )
+                                )
+                        )
+
+                        .requestMatchers(HttpMethod.PUT, USER_PATH)
+                        .access((authentication, context) ->
+                                new AuthorizationDecision(
+                                        access.canAccessUser(
+                                                authentication.get(),
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
+                                        )
+                                )
+                        )
+
+                        .requestMatchers("/api/v1/users/{userId}/cards")
+                        .access((authentication, context) ->
+                                new AuthorizationDecision(
+                                        access.canAccessUser(
+                                                authentication.get(),
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
+                                        )
+                                )
+                        )
+
+                        .requestMatchers(
+                                "/api/v1/cards/{cardId}",
+                                "/api/v1/cards/{cardId}/active"
+                        )
+                        .access((authentication, context) ->
+                                new AuthorizationDecision(
+                                        access.canAccessCard(
+                                                authentication.get(),
+                                                context.getVariables()
+                                                        .get("cardId")
+                                        )
+                                )
+                        )
+
+                        .requestMatchers(
+                                "/api/v1/users",
+                                "/api/v1/users/**",
+                                "/api/v1/cards"
+                        )
+                        .hasRole("ADMIN")
+
+                        .anyRequest().denyAll()
+                )
+                .oauth2ResourceServer(resource -> resource
+                        .jwt(jwt -> jwt
+                                .decoder(decoder)
+                                .jwtAuthenticationConverter(converter)
+                        )
+                        .authenticationEntryPoint((request, response, exception) ->
+                                errors.write(
+                                        request,
+                                        response,
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Invalid or expired access token"
+                                )
+                        )
+                        .accessDeniedHandler((request, response, exception) ->
+                                errors.write(
+                                        request,
+                                        response,
+                                        HttpStatus.FORBIDDEN,
+                                        ACCESS_DENIED_MESSAGE
+                                )
+                        )
+                )
+                .build();
+    }
+
+    private void configureCommon(
+            HttpSecurity http,
+            SecurityErrorWriter errors
+    ) {
+        // Authentication uses explicit Authorization or X-Registration-Key headers.
+        // No cookie-based authentication or HTTP Basic is used.
+        // Reassess CSRF protection if cookie-based authentication is introduced.
+        http
+                .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(r -> r
-                        .requestMatchers(HttpMethod.GET, "/api/ping").permitAll()
-                        .requestMatchers("/api/v1/users", "/api/v1/users/**",
-                                "/api/v1/cards", "/api/v1/cards/**").hasAnyRole("ADMIN", "USER")
-                        .anyRequest().denyAll())
-                .exceptionHandling(e -> e
-                        .authenticationEntryPoint((req, res, ex) -> writeError(objectMapper, req, res, HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((req, res, ex) -> writeError(objectMapper, req, res, HttpStatus.FORBIDDEN)))
-                .oauth2ResourceServer(r -> r
-                        .jwt(j -> j.decoder(decoder).jwtAuthenticationConverter(converter))
-                        .authenticationEntryPoint((req, res, ex) -> writeError(objectMapper, req, res, HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((req, res, ex) -> writeError(objectMapper, req, res, HttpStatus.FORBIDDEN)))
-                .build();
-    }
-
-    private void writeError(ObjectMapper mapper, HttpServletRequest request,
-                            HttpServletResponse response, HttpStatus status) throws IOException {
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-        response.setHeader("Cache-Control", "no-store");
-        if (status == HttpStatus.UNAUTHORIZED) response.setHeader("WWW-Authenticate", "Bearer");
-        mapper.writeValue(response.getOutputStream(), new ErrorResponseDto(
-                Instant.now(), status.value(), status.getReasonPhrase(),
-                status == HttpStatus.UNAUTHORIZED ? "A valid access token is required" : "Access denied",
-                request.getRequestURI(), Map.of()));
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+                .exceptionHandling(configuration -> configuration
+                        .authenticationEntryPoint((request, response, exception) ->
+                                errors.write(
+                                        request,
+                                        response,
+                                        HttpStatus.UNAUTHORIZED,
+                                        "A valid access token is required"
+                                )
+                        )
+                        .accessDeniedHandler((request, response, exception) ->
+                                errors.write(
+                                        request,
+                                        response,
+                                        HttpStatus.FORBIDDEN,
+                                        ACCESS_DENIED_MESSAGE
+                                )
+                        )
+                );
     }
 }
