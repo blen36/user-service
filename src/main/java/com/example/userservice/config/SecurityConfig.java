@@ -22,6 +22,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
+    private static final String USER_ID_VARIABLE = "userId";
+    private static final String USER_PATH = "/api/v1/users/{userId}";
+    private static final String ACCESS_DENIED_MESSAGE = "Access denied";
+
     @Bean
     @Order(1)
     public SecurityFilterChain internalSecurity(
@@ -29,7 +33,6 @@ public class SecurityConfig {
             SecurityErrorWriter errors,
             @Value("${user.registration-key}") String key
     ) throws Exception {
-
         configureCommon(http, errors);
 
         return http
@@ -52,7 +55,6 @@ public class SecurityConfig {
             SecurityErrorWriter errors,
             UserAccess access
     ) throws Exception {
-
         configureCommon(http, errors);
 
         JwtGrantedAuthoritiesConverter roles =
@@ -71,28 +73,24 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/ping")
                         .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/users/{userId}"
-                        )
+                        .requestMatchers(HttpMethod.GET, USER_PATH)
                         .access((authentication, context) ->
                                 new AuthorizationDecision(
                                         access.canAccessUser(
                                                 authentication.get(),
-                                                context.getVariables().get("userId")
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
                                         )
                                 )
                         )
 
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/v1/users/{userId}"
-                        )
+                        .requestMatchers(HttpMethod.PUT, USER_PATH)
                         .access((authentication, context) ->
                                 new AuthorizationDecision(
                                         access.canAccessUser(
                                                 authentication.get(),
-                                                context.getVariables().get("userId")
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
                                         )
                                 )
                         )
@@ -102,7 +100,8 @@ public class SecurityConfig {
                                 new AuthorizationDecision(
                                         access.canAccessUser(
                                                 authentication.get(),
-                                                context.getVariables().get("userId")
+                                                context.getVariables()
+                                                        .get(USER_ID_VARIABLE)
                                         )
                                 )
                         )
@@ -115,7 +114,8 @@ public class SecurityConfig {
                                 new AuthorizationDecision(
                                         access.canAccessCard(
                                                 authentication.get(),
-                                                context.getVariables().get("cardId")
+                                                context.getVariables()
+                                                        .get("cardId")
                                         )
                                 )
                         )
@@ -147,7 +147,7 @@ public class SecurityConfig {
                                         request,
                                         response,
                                         HttpStatus.FORBIDDEN,
-                                        "Access denied"
+                                        ACCESS_DENIED_MESSAGE
                                 )
                         )
                 )
@@ -157,7 +157,10 @@ public class SecurityConfig {
     private void configureCommon(
             HttpSecurity http,
             SecurityErrorWriter errors
-    ) throws Exception {
+    ) {
+        // Authentication uses explicit Authorization or X-Registration-Key headers.
+        // No cookie-based authentication or HTTP Basic is used.
+        // Reassess CSRF protection if cookie-based authentication is introduced.
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -183,7 +186,7 @@ public class SecurityConfig {
                                         request,
                                         response,
                                         HttpStatus.FORBIDDEN,
-                                        "Access denied"
+                                        ACCESS_DENIED_MESSAGE
                                 )
                         )
                 );
