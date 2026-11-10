@@ -7,14 +7,18 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
+      - "127.0.0.1:${SERVER_PORT:-8081}:8081"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:-user_service_db}"
       DB_USERNAME: "${POSTGRES_USER:-user_service}"
       DB_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      SERVER_PORT: "8081"
+      AUTH_REGISTRATION_KEY: "${AUTH_REGISTRATION_KEY:?Set AUTH_REGISTRATION_KEY in .env}"
+      AUTH_JWKS_URI: "${AUTH_JWKS_URI:-http://auth-service:8082/.well-known/jwks.json}"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+    networks: [default, services]
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,3 +53,8 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  services:
+    name: java-advanced-services
+    external: true

@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-email-case-insensitive
+      author: user-service
+      changes:
+        - sql:
+            sql: CREATE UNIQUE INDEX uq_users_email_lower ON users (lower(email))
